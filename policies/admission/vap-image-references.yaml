@@ -6,7 +6,7 @@
 # Applied to Pods and to Argo Rollouts templates, so a bad Rollout fails at Argo CD sync time
 # instead of as ReplicaSet events.
 #
-# WARDEN_ORG must be the *lowercase* org name: GHCR paths are lowercase.
+# GHCR paths are lowercase, so the GitHub org WARDEN-CCD appears here as warden-ccd.
 # The NotIn list must equal `platformNamespaces` in the hub's workspace.yaml (scripts/verify.py checks).
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
@@ -34,10 +34,10 @@ spec:
         + (has(object.spec.initContainers) ? object.spec.initContainers.map(c, c.image) : [])
         + (has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers.map(c, c.image) : [])
   validations:
-    - expression: "variables.images.all(i, i.startsWith('ghcr.io/WARDEN_ORG/'))"
+    - expression: "variables.images.all(i, i.startsWith('ghcr.io/warden-ccd/'))"
       messageExpression: >-
-        'T06: image not from ghcr.io/WARDEN_ORG/: '
-        + variables.images.filter(i, !i.startsWith('ghcr.io/WARDEN_ORG/')).join(', ')
+        'T06: image not from ghcr.io/warden-ccd/: '
+        + variables.images.filter(i, !i.startsWith('ghcr.io/warden-ccd/')).join(', ')
     - expression: "variables.images.all(i, i.matches('@sha256:[a-f0-9]{64}$'))"
       messageExpression: >-
         'T01: image must be pinned by digest (name@sha256:...): '
@@ -77,8 +77,8 @@ spec:
         object.spec.template.spec.containers.map(c, c.image)
         + (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers.map(c, c.image) : [])
   validations:
-    - expression: "variables.images.all(i, i.startsWith('ghcr.io/WARDEN_ORG/'))"
-      message: "T06: Rollout template uses an image outside ghcr.io/WARDEN_ORG/"
+    - expression: "variables.images.all(i, i.startsWith('ghcr.io/warden-ccd/'))"
+      message: "T06: Rollout template uses an image outside ghcr.io/warden-ccd/"
     - expression: "variables.images.all(i, i.matches('@sha256:[a-f0-9]{64}$'))"
       message: "T01: Rollout template image must be pinned by digest"
 ---
