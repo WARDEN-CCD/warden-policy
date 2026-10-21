@@ -1,0 +1,47 @@
+# DRAFT — encodes ADR-022; not yet exercised.
+# Vulnerability attestation is checked in Audit mode permanently: a scan is a snapshot, and blocking a
+# rollback because of a CVE published after the build is the wrong failure mode. CI blocks fixable
+# CRITICALs at build time; this policy makes the state visible on the admission dashboard.
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: warden-vuln-attestation
+  annotations:
+    warden.dev/threat-ids: "T16"
+spec:
+  validationActions: [Audit]   # stays Audit (ADR-022)
+  failurePolicy: Ignore
+  webhookConfiguration:
+    timeoutSeconds: 30
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kube-public, kube-node-lease, local-path-storage, argocd, argo-rollouts, kyverno, envoy-gateway-system, monitoring, crossplane-system, cnpg-system, k6-operator-system]
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchImageReferences:
+    - glob: "ghcr.io/WARDEN_ORG/*"
+  attestors:
+    - name: wardenBuilder
+      cosign:
+        keyless:
+          identities:
+            - issuer: https://token.actions.githubusercontent.com
+              subjectRegExp: '^https://github\.com/WARDEN_ORG/warden-platform/\.github/workflows/build-sign-attest\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'
+        ctlog:
+          url: https://rekor.sigstore.dev
+  attestations:
+    - name: vulns
+      intoto:
+        type: https://cosign.sigstore.dev/attestation/vuln/v1
+  validations:
+    - message: "T16: vulnerability attestation missing"
+      expression: >-
+        images.containers.map(image, verifyAttestationSignatures(image, attestations.vulns, [attestors.wardenBuilder])).all(e, e > 0)
+    # TODO(M2): add a CRITICAL-count check over predicate.scanner.result once the Trivy cosign-vuln
+    # payload shape is confirmed in S1.
