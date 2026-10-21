@@ -4,6 +4,8 @@
 #      Kyverno's conformance test uses ".predicate.buildDefinition", its sample library uses predicate-root fields.
 #   Q3 are Rekor v2 entries (cosign >= 3.1) verified with this ctlog config?
 #   Also: does `images.containers` cover initContainers? If not, add `images.initContainers`.
+#   Also: matching is case-sensitive. GitHub claims should carry the org's canonical case (WARDEN-CCD);
+#   GHCR references are always lowercase (warden-ccd). Confirm both against a real cert/provenance in S1.
 #
 # Layer 2 of admission (ADR-007): who built it, from what, with which attestations.
 # Starts in Audit; flips to Deny at milestone M3 (ADR-020).
@@ -38,7 +40,7 @@ spec:
         operations: ["CREATE", "UPDATE"]
         resources: ["pods"]
   matchImageReferences:
-    - glob: "ghcr.io/WARDEN_ORG/*"
+    - glob: "ghcr.io/warden-ccd/*"
   validationConfigurations:
     mutateDigest: false   # VAP already requires digests; never rewrite silently
     verifyDigest: true
@@ -50,7 +52,7 @@ spec:
           identities:
             # Certificate subject of a reusable workflow = the reusable workflow's own ref (ADR-009/010).
             - issuer: https://token.actions.githubusercontent.com
-              subjectRegExp: '^https://github\.com/WARDEN_ORG/warden-platform/\.github/workflows/build-sign-attest\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'
+              subjectRegExp: '^https://github\.com/WARDEN-CCD/warden-platform/\.github/workflows/build-sign-attest\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'
         ctlog:
           url: https://rekor.sigstore.dev
   attestations:
@@ -62,7 +64,7 @@ spec:
         type: https://cyclonedx.org/bom
   variables:
     - name: allowedRepoPrefix
-      expression: "'https://github.com/WARDEN_ORG/svc-'"
+      expression: "'https://github.com/WARDEN-CCD/svc-'"
   validations:
     - message: "T02/T03/T07: image is not signed by Warden's build workflow at a released tag"
       expression: >-
@@ -70,7 +72,7 @@ spec:
     - message: "T08: SLSA provenance attestation missing or not signed by Warden's build workflow"
       expression: >-
         images.containers.map(image, verifyAttestationSignatures(image, attestations.provenance, [attestors.wardenBuilder])).all(e, e > 0)
-    - message: "T04: provenance names a source repository outside WARDEN_ORG/svc-*"
+    - message: "T04: provenance names a source repository outside WARDEN-CCD/svc-*"
       expression: >-
         images.containers.map(image,
           extractPayload(image, attestations.provenance).predicate.buildDefinition.externalParameters.workflow.repository
