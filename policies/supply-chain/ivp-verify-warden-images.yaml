@@ -1,11 +1,10 @@
-# DRAFT — encodes ADR-008/009; not yet exercised. Spike S1 (ROADMAP.md) validates it and answers:
-#   Q1 does IVP find GitHub provenance bundles on GHCR (referrers fallback tag)?
-#   Q2 does extractPayload() return the in-toto statement (".predicate...") or the predicate itself?
-#      Kyverno's conformance test uses ".predicate.buildDefinition", its sample library uses predicate-root fields.
-#   Q3 are Rekor v2 entries (cosign >= 3.1) verified with this ctlog config?
-#   Also: does `images.containers` cover initContainers? If not, add `images.initContainers`.
-#   Also: matching is case-sensitive. GitHub claims should carry the org's canonical case (WARDEN-CCD);
-#   GHCR references are always lowercase (warden-ccd). Confirm both against a real cert/provenance in S1.
+# DRAFT until exercised with real Warden images. Its shape was validated in spike S1 (hub
+# evidence/spikes/S1.md): the same rules, pointed at the spike's signer, admitted the signed image and refused
+# unsigned and foreign-signed images on Kyverno 1.19.2 / GHCR. Confirmed there:
+#   - extractPayload() returns the in-toto statement, so paths start with `.predicate.`
+#   - the certificate subject is the reusable workflow's ref, with the org in canonical case WARDEN-CCD
+#   - GitHub provenance and cosign bundles are found via GHCR's referrers fallback tag; Rekor v1 entries verify
+# Still open: does `images.containers` cover initContainers? If not, add `images.initContainers`.
 #
 # Layer 2 of admission (ADR-007): who built it, from what, with which attestations.
 # Starts in Audit; flips to Deny at milestone M3 (ADR-020).
