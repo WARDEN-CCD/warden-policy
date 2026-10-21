@@ -1,0 +1,91 @@
+# DRAFT — encodes ADR-007; not yet exercised on a cluster. Remove this line after it has been.
+#
+# Layer 1 of admission: cheap invariants enforced in-process by the API server (no webhook to fail).
+#   - images must come from the Warden registry prefix (stops IVP-matching bypass, T06)
+#   - images must be pinned by digest (stops tag repointing, T01)
+# Applied to Pods and to Argo Rollouts templates, so a bad Rollout fails at Argo CD sync time
+# instead of as ReplicaSet events.
+#
+# WARDEN_ORG must be the *lowercase* org name: GHCR paths are lowercase.
+# The NotIn list must equal `platformNamespaces` in the hub's workspace.yaml (scripts/verify.py checks).
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: warden-image-references-pods
+  annotations:
+    warden.dev/threat-ids: "T01,T06"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kube-public, kube-node-lease, local-path-storage, argocd, argo-rollouts, kyverno, envoy-gateway-system, monitoring, crossplane-system, cnpg-system, k6-operator-system]
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods", "pods/ephemeralcontainers"]
+  variables:
+    - name: images
+      expression: >-
+        object.spec.containers.map(c, c.image)
+        + (has(object.spec.initContainers) ? object.spec.initContainers.map(c, c.image) : [])
+        + (has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers.map(c, c.image) : [])
+  validations:
+    - expression: "variables.images.all(i, i.startsWith('ghcr.io/WARDEN_ORG/'))"
+      messageExpression: >-
+        'T06: image not from ghcr.io/WARDEN_ORG/: '
+        + variables.images.filter(i, !i.startsWith('ghcr.io/WARDEN_ORG/')).join(', ')
+    - expression: "variables.images.all(i, i.matches('@sha256:[a-f0-9]{64}$'))"
+      messageExpression: >-
+        'T01: image must be pinned by digest (name@sha256:...): '
+        + variables.images.filter(i, !i.matches('@sha256:[a-f0-9]{64}$')).join(', ')
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: warden-image-references-pods
+spec:
+  policyName: warden-image-references-pods
+  validationActions: [Audit, Warn]   # → [Deny] at milestone M3 (ADR-020)
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: warden-image-references-rollouts
+  annotations:
+    warden.dev/threat-ids: "T01,T06"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kube-public, kube-node-lease, local-path-storage, argocd, argo-rollouts, kyverno, envoy-gateway-system, monitoring, crossplane-system, cnpg-system, k6-operator-system]
+    resourceRules:
+      - apiGroups: ["argoproj.io"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["rollouts"]
+  variables:
+    - name: images
+      # Rollouts in Warden always embed a template (no workloadRef); see the service template.
+      expression: >-
+        object.spec.template.spec.containers.map(c, c.image)
+        + (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers.map(c, c.image) : [])
+  validations:
+    - expression: "variables.images.all(i, i.startsWith('ghcr.io/WARDEN_ORG/'))"
+      message: "T06: Rollout template uses an image outside ghcr.io/WARDEN_ORG/"
+    - expression: "variables.images.all(i, i.matches('@sha256:[a-f0-9]{64}$'))"
+      message: "T01: Rollout template image must be pinned by digest"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: warden-image-references-rollouts
+spec:
+  policyName: warden-image-references-rollouts
+  validationActions: [Audit, Warn]   # → [Deny] at milestone M3 (ADR-020)

@@ -1,0 +1,85 @@
+# DRAFT — encodes ADR-008/009; not yet exercised. Spike S1 (ROADMAP.md) validates it and answers:
+#   Q1 does IVP find GitHub provenance bundles on GHCR (referrers fallback tag)?
+#   Q2 does extractPayload() return the in-toto statement (".predicate...") or the predicate itself?
+#      Kyverno's conformance test uses ".predicate.buildDefinition", its sample library uses predicate-root fields.
+#   Q3 are Rekor v2 entries (cosign >= 3.1) verified with this ctlog config?
+#   Also: does `images.containers` cover initContainers? If not, add `images.initContainers`.
+#
+# Layer 2 of admission (ADR-007): who built it, from what, with which attestations.
+# Starts in Audit; flips to Deny at milestone M3 (ADR-020).
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: warden-verify-supply-chain
+  annotations:
+    warden.dev/threat-ids: "T02,T03,T04,T05,T07,T08"
+    policies.kyverno.io/title: Verify Warden supply chain
+    policies.kyverno.io/description: >-
+      Admits an image only if it was signed keylessly by Warden's reusable build workflow at a released
+      tag, carries a SLSA v1 provenance attestation naming an org-owned svc-* repository and refs/heads/main,
+      and carries a CycloneDX SBOM attestation from the same identity.
+spec:
+  validationActions: [Audit]
+  failurePolicy: Fail
+  webhookConfiguration:
+    timeoutSeconds: 30
+  evaluation:
+    background:
+      enabled: false
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kube-public, kube-node-lease, local-path-storage, argocd, argo-rollouts, kyverno, envoy-gateway-system, monitoring, crossplane-system, cnpg-system, k6-operator-system]
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchImageReferences:
+    - glob: "ghcr.io/WARDEN_ORG/*"
+  validationConfigurations:
+    mutateDigest: false   # VAP already requires digests; never rewrite silently
+    verifyDigest: true
+    required: true
+  attestors:
+    - name: wardenBuilder
+      cosign:
+        keyless:
+          identities:
+            # Certificate subject of a reusable workflow = the reusable workflow's own ref (ADR-009/010).
+            - issuer: https://token.actions.githubusercontent.com
+              subjectRegExp: '^https://github\.com/WARDEN_ORG/warden-platform/\.github/workflows/build-sign-attest\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'
+        ctlog:
+          url: https://rekor.sigstore.dev
+  attestations:
+    - name: provenance
+      intoto:
+        type: https://slsa.dev/provenance/v1
+    - name: sbom
+      intoto:
+        type: https://cyclonedx.org/bom
+  variables:
+    - name: allowedRepoPrefix
+      expression: "'https://github.com/WARDEN_ORG/svc-'"
+  validations:
+    - message: "T02/T03/T07: image is not signed by Warden's build workflow at a released tag"
+      expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors.wardenBuilder])).all(e, e > 0)
+    - message: "T08: SLSA provenance attestation missing or not signed by Warden's build workflow"
+      expression: >-
+        images.containers.map(image, verifyAttestationSignatures(image, attestations.provenance, [attestors.wardenBuilder])).all(e, e > 0)
+    - message: "T04: provenance names a source repository outside WARDEN_ORG/svc-*"
+      expression: >-
+        images.containers.map(image,
+          extractPayload(image, attestations.provenance).predicate.buildDefinition.externalParameters.workflow.repository
+            .startsWith(variables.allowedRepoPrefix)).all(e, e)
+    - message: "T05: provenance says the image was not built from refs/heads/main"
+      expression: >-
+        images.containers.map(image,
+          extractPayload(image, attestations.provenance).predicate.buildDefinition.externalParameters.workflow.ref
+            == 'refs/heads/main').all(e, e)
+    - message: "T08: CycloneDX SBOM attestation missing or not signed by Warden's build workflow"
+      expression: >-
+        images.containers.map(image, verifyAttestationSignatures(image, attestations.sbom, [attestors.wardenBuilder])).all(e, e > 0)
