@@ -32,6 +32,7 @@ def clone(doc: dict) -> dict | None:
     if kind == "ImageValidatingPolicy":
         d["spec"]["matchConstraints"]["namespaceSelector"] = LAB_SELECTOR
         d["spec"]["validationActions"] = ["Deny"]
+        d["spec"]["failurePolicy"] = "Fail"  # enforcement semantics, whatever the cluster's audit-phase setting
         return d
     return None
 

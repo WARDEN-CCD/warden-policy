@@ -21,7 +21,10 @@ metadata:
       and carries a CycloneDX SBOM attestation from the same identity.
 spec:
   validationActions: [Audit]
-  failurePolicy: Fail
+  # Audit phase: Ignore. Verifying signature + provenance + SBOM costs 16-24 s per pod on kind (about 20
+  # sequential GHCR round-trips, ~0.36 s each); a slow verification must not block deploys while auditing.
+  # At M3 this flips to Fail together with Deny (ADR-020). Attack-lab clones always use Fail.
+  failurePolicy: Ignore
   webhookConfiguration:
     timeoutSeconds: 30
   evaluation:
