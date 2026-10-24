@@ -1,11 +1,11 @@
 {
-  "_comment": "Images used by run_attacks.py. Tags are resolved to digests anonymously at run time (ADR-028: images are public). null = fixture not built yet; the attack is reported as skipped.",
+  "_comment": "Images used by run_attacks.py. Tags are resolved to digests anonymously at run time (ADR-028). a03/a07/a08 come from warden-spike-s1's attack-fixtures.yml; a04 from its deputy.yml (the real platform workflow called from a non-svc repo). null or not pullable = attack reported as skipped.",
   "good": "ghcr.io/warden-ccd/svc-books:027f71e5ca36bbba9e5fd5de84abf8293eeb8fb8",
   "a01_tag_reference": "ghcr.io/warden-ccd/svc-books:027f71e5ca36bbba9e5fd5de84abf8293eeb8fb8",
   "a02_unsigned": "ghcr.io/warden-ccd/svc-books:ffe006210485cc2d2d1a1b8ea323ee91b5869e18",
-  "a03_foreign_signer": null,
-  "a04_confused_deputy": null,
+  "a03_foreign_signer": "ghcr.io/warden-ccd/attack-fixtures@sha256:27dde807a5d8539a62f89251c9dc44ae07027c33563271440154b9da99162ab9",
+  "a04_confused_deputy": "ghcr.io/warden-ccd/warden-spike-s1:93a672d692240246b7fcf76598c51f835f490d4f",
   "a06_foreign_registry": "docker.io/library/nginx@sha256:0000000000000000000000000000000000000000000000000000000000000000",
-  "a07_modified_after_signing": null,
-  "a08_stripped_attestations": null
+  "a07_modified_after_signing": "ghcr.io/warden-ccd/attack-fixtures@sha256:af92da24866a87956f440d90abf547e2e7e4aa8b01203e80835b7702e4f02fc1",
+  "a08_stripped_attestations": "ghcr.io/warden-ccd/attack-fixtures@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24"
 }

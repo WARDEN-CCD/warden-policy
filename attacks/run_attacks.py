@@ -77,7 +77,7 @@ def teardown_lab() -> None:
 def admission(attack: str, image: str | None, expect: str | None) -> dict:
     """expect=None: must be admitted; otherwise must be denied with `expect` in the message."""
     if image is None:
-        return {"observed": "skipped", "passed": None, "message": "fixture not built yet (attacks/fixtures.json)"}
+        return {"observed": "skipped", "passed": None, "message": "fixture not available (attacks/fixtures.json)"}
     name = attack.lower().replace("_", "-")
     r = sh("kubectl", "-n", LAB_NS, "run", f"{name}-{int(time.time())}", "--restart=Never", "--dry-run=server",
            f"--image={image}")
@@ -197,7 +197,12 @@ def main() -> int:
     args = ap.parse_args()
 
     fx = {k: v for k, v in json.loads((HERE / "fixtures.json").read_text()).items() if not k.startswith("_")}
-    resolved = {k: (resolve(v) if v else None) for k, v in fx.items()}
+    resolved, unresolved = {}, {}
+    for k, v in fx.items():
+        try:
+            resolved[k] = resolve(v) if v else None
+        except Exception as exc:  # not built, or not public yet (ADR-028)
+            resolved[k], unresolved[k] = None, f"{v}: {exc}"
     resolved["a01_tag_reference"] = fx["a01_tag_reference"]  # keep the tag: that is the attack
 
     plan = [
@@ -221,6 +226,9 @@ def main() -> int:
         for aid, threat, desc, kind, image, expect in plan:
             if kind == "admission":
                 r = admission(aid, image, expect)
+                key = next((k for k in fx if k.startswith(aid.lower() + "_")), None)
+                if r["observed"] == "skipped" and key in unresolved:
+                    r["message"] = "fixture not pullable anonymously: " + unresolved[key][:200]
                 expected = "admit" if expect is None else f"deny ({expect})"
             elif kind == "note":
                 r = {"observed": "prevented earlier", "passed": True,
