@@ -21,8 +21,8 @@ metadata:
       and carries a CycloneDX SBOM attestation from the same identity.
 spec:
   validationActions: [Audit]
-  # Audit phase: Ignore. Verifying signature + provenance + SBOM costs 16-24 s per pod on kind (about 20
-  # sequential GHCR round-trips, ~0.36 s each); a slow verification must not block deploys while auditing.
+  # Audit phase: Ignore. Each cosign verification costs ~8-12 s on kind (Kyverno makes ~30 sequential HTTPS
+  # requests per verification, hub EVALUATION E8); a slow verification must not block deploys while auditing.
   # At M3 this flips to Fail together with Deny (ADR-020). Attack-lab clones always use Fail.
   failurePolicy: Ignore
   webhookConfiguration:
@@ -68,10 +68,10 @@ spec:
     - name: allowedRepoPrefix
       expression: "'https://github.com/WARDEN-CCD/svc-'"
   validations:
-    - message: "T02/T03/T07: image is not signed by Warden's build workflow at a released tag"
-      expression: >-
-        images.containers.map(image, verifyImageSignatures(image, [attestors.wardenBuilder])).all(e, e > 0)
-    - message: "T08: SLSA provenance attestation missing or not signed by Warden's build workflow"
+    # No separate verifyImageSignatures (ADR-030): Kyverno verifies an attestation only if its signed in-toto
+    # subject is this exact digest, so a provenance signed by the build identity proves what the image signature
+    # proves (T02 unsigned, T03 foreign signer, T07 modified digest) at one verification less per Pod.
+    - message: "T02/T03/T07/T08: no SLSA provenance for this digest signed by Warden's build workflow at a released tag"
       expression: >-
         images.containers.map(image, verifyAttestationSignatures(image, attestations.provenance, [attestors.wardenBuilder])).all(e, e > 0)
     - message: "T04: provenance names a source repository outside WARDEN-CCD/svc-*"

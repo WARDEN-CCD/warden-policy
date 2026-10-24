@@ -173,6 +173,8 @@ def a12_policy_drift() -> dict:
                 "-o", "jsonpath={.spec.validations[*].message}").stdout
     if not before:
         return {"observed": "skipped", "passed": None, "message": f"{name} not found on this cluster"}
+    removed = sh("kubectl", "get", "imagevalidatingpolicies.policies.kyverno.io", name,
+                 "-o", "jsonpath={.spec.validations[0].message}").stdout.split(":")[0]
     patch = sh("kubectl", "patch", "imagevalidatingpolicies.policies.kyverno.io", name, "--type=json",
                "-p", '[{"op":"remove","path":"/spec/validations/0"}]')
     if patch.returncode != 0:
@@ -184,7 +186,7 @@ def a12_policy_drift() -> dict:
         if now == before:
             secs = round(time.time() - start, 1)
             return {"observed": f"restored after {secs}s", "passed": True, "seconds": secs,
-                    "message": "removed the signature validation; Argo CD self-heal put it back"}
+                    "message": f"removed the first validation ({removed}); Argo CD self-heal put it back"}
         time.sleep(1)
     return {"observed": "not restored within 300s", "passed": False, "message": "self-heal did not revert the tampering"}
 
