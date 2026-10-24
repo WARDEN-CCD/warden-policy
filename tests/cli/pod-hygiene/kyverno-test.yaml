@@ -1,0 +1,38 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pod-hygiene
+policies:
+- ../../../policies/hygiene/pod-hygiene.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+results:
+- policy: warden-pod-hygiene
+  resources:
+  - hyg-good
+  - hyg-net-bind-service-allowed
+  kind: Pod
+  result: pass
+  isValidatingPolicy: true
+- policy: warden-pod-hygiene
+  resources:
+  - hyg-root-pod
+  - hyg-container-overrides-non-root
+  - hyg-privilege-escalation
+  - hyg-writable-root-fs
+  - hyg-adds-sys-admin
+  - hyg-privileged
+  - hyg-no-resources
+  - hyg-no-probes
+  - hyg-init-escalates
+  - hyg-ephemeral-no-security-context
+  kind: Pod
+  result: fail
+  isValidatingPolicy: true
+- policy: warden-pod-hygiene
+  resources:
+  - hyg-exempt-namespace
+  kind: Pod
+  result: skip
+  isValidatingPolicy: true

@@ -1,0 +1,422 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-good
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-net-bind-service-allowed
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - NET_BIND_SERVICE
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-root-pod
+  namespace: svc-books
+spec:
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-container-overrides-non-root
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+      runAsNonRoot: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-privilege-escalation
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: true
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-writable-root-fs
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-adds-sys-admin
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - SYS_ADMIN
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-privileged
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-no-resources
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-no-probes
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-init-escalates
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+  initContainers:
+  - name: init
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: true
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-ephemeral-no-security-context
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+  ephemeralContainers:
+  - name: debug
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-exempt-namespace
+  namespace: kube-system
+spec:
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+      privileged: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080

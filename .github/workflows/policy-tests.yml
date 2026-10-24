@@ -1,0 +1,45 @@
+# `kyverno test tests/cli` on every pull request and push to main. Offline: no cluster, no credentials (CI never
+# talks to a cluster, THREAT_MODEL T09). Live checks (tests/*-smoke.sh, attacks/) need a cluster and run on kind.
+name: policy-tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+env:
+  KYVERNO_VERSION: v1.19.2   # hub versions.yaml tools.kyverno
+  COSIGN_VERSION: v3.1.4     # hub versions.yaml ci.cosign
+
+jobs:
+  kyverno-test:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: ${{ env.COSIGN_VERSION }}
+      - name: Install the kyverno CLI as a verified binary (ADR-011)
+        # Signer identity checked when the CLI was first installed (2026-10-25). Re-check when bumping versions.
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          archive="kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz"
+          base="https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}"
+          curl -fsSLO "$base/$archive"
+          curl -fsSLO "$base/$archive.sigstore.json"
+          cosign verify-blob --bundle "$archive.sigstore.json" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity "https://github.com/kyverno/kyverno/.github/workflows/release.yaml@refs/tags/${KYVERNO_VERSION}" \
+            "$archive"
+          mkdir -p bin
+          tar -xzf "$archive" -C bin kyverno
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: kyverno test
+        run: kyverno test tests/cli --require-tests --remove-color
