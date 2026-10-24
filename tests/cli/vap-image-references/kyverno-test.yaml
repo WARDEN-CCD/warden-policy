@@ -1,0 +1,27 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: vap-image-references
+policies:
+- ../../../policies/admission/vap-image-references.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+results:
+- policy: warden-image-references-pods
+  resources:
+  - img-good-digest
+  kind: Pod
+  result: pass
+  isValidatingAdmissionPolicy: true
+- policy: warden-image-references-pods
+  resources:
+  - img-tag-not-digest
+  - img-other-registry
+  - img-lookalike-prefix
+  - img-init-by-tag
+  - img-ephemeral-other-registry
+  - img-cnpg-image-wrong-requester
+  kind: Pod
+  result: fail
+  isValidatingAdmissionPolicy: true

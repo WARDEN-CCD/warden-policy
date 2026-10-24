@@ -1,0 +1,241 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: img-good-digest
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: img-tag-not-digest
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books:v1
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: img-other-registry
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: docker.io/library/nginx@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: img-lookalike-prefix
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd-evil/svc-books@sha256:1111111111111111111111111111111111111111111111111111111111111111
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: img-init-by-tag
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+  initContainers:
+  - name: init
+    image: ghcr.io/warden-ccd/svc-books:latest
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: img-ephemeral-other-registry
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+  ephemeralContainers:
+  - name: debug
+    image: docker.io/library/busybox@sha256:2222222222222222222222222222222222222222222222222222222222222222
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: img-cnpg-image-wrong-requester
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: postgres
+    image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
