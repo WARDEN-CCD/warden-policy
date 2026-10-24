@@ -1,7 +1,9 @@
 # Layer 3 (ADR-007): golden-path pod defaults, enforced as well as templated. Not threat-model controls
 # (messages are prefixed HYG:). Audit until milestone M3 (ADR-020). Tested with tests/hygiene-smoke.sh.
 # Security-context rules cover regular, init and ephemeral containers; resources and probes apply to regular
-# containers only (init/ephemeral containers have no probes).
+# containers only (init/ephemeral containers have no probes). Ephemeral containers added later through the
+# pods/ephemeralcontainers subresource (kubectl debug) are covered by Layer 1's VAP, which matches that
+# subresource natively; Kyverno's reports controller cannot list/watch it, so this policy does not match it.
 apiVersion: policies.kyverno.io/v1
 kind: ValidatingPolicy
 metadata:
@@ -18,7 +20,7 @@ spec:
       - apiGroups: [""]
         apiVersions: ["v1"]
         operations: ["CREATE", "UPDATE"]
-        resources: ["pods", "pods/ephemeralcontainers"]
+        resources: ["pods"]
   variables:
     - name: podNonRoot
       expression: >-
