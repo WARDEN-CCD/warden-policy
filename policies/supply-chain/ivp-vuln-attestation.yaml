@@ -17,6 +17,13 @@ spec:
   failurePolicy: Ignore
   webhookConfiguration:
     timeoutSeconds: 30
+  # Background scans only (ADR-030): an Audit-only check blocks nothing at admission, it only added a full
+  # cosign verification (~4-12 s) to every Pod. Results still reach PolicyReports.
+  evaluation:
+    admission:
+      enabled: false
+    background:
+      enabled: true
   matchConstraints:
     namespaceSelector:
       matchExpressions:
