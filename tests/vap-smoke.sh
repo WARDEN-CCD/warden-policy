@@ -19,6 +19,12 @@ check() {  # $1 description, $2 expected substring ("" = no warning expected), r
 check "A06 foreign registry is flagged"  "T06: image not from ghcr.io/warden-ccd/" --image=docker.io/library/nginx@sha256:0000000000000000000000000000000000000000000000000000000000000000
 check "A01 tag reference is flagged"     "T01: image must be pinned by digest"     --image=ghcr.io/warden-ccd/svc-books:v1
 check "Warden image by digest is clean"  ""                                        --image=ghcr.io/warden-ccd/svc-books@sha256:0000000000000000000000000000000000000000000000000000000000000000
-check "CNPG image on CNPG pod is clean"  ""                                        --image=ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e --labels=cnpg.io/cluster=smoke
+check "CNPG label alone is not trusted" "T06: image not from ghcr.io/warden-ccd/" --image=ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e --labels=cnpg.io/cluster=smoke
 check "CNPG image on other pod flagged"  "T06: image not from ghcr.io/warden-ccd/" --image=ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e
+# The carve-out itself: the live CNPG instance pod was admitted without a T06 warning when the operator created it.
+if kubectl get events -A --field-selector reason=FailedCreate 2>/dev/null | grep -q "T06"; then
+  echo "FAIL CNPG operator pod creation hit T06"; fail=1
+else
+  echo "ok   CNPG operator-created pods pass (no T06 FailedCreate events)"
+fi
 exit $fail
