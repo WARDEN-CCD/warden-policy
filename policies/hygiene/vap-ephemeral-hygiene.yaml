@@ -1,0 +1,52 @@
+# Layer 3 companion to pod-hygiene.yaml for ephemeral containers added with `kubectl debug`, which arrive as an
+# UPDATE on the pods/ephemeralcontainers subresource. A native VAP can match that subresource (Kyverno's reports
+# controller cannot list/watch it). Same rules as pod-hygiene for security context. Audit+Warn until M3.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: warden-ephemeral-container-hygiene
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kube-public, kube-node-lease, local-path-storage, argocd, argo-rollouts, kyverno, envoy-gateway-system, monitoring, crossplane-system, cnpg-system, k6-operator-system]
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods/ephemeralcontainers"]
+  variables:
+    - name: ephemeral
+      expression: "has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers : []"
+    - name: podNonRoot
+      expression: >-
+        has(object.spec.securityContext) && has(object.spec.securityContext.runAsNonRoot)
+        && object.spec.securityContext.runAsNonRoot == true
+  validations:
+    - expression: >-
+        variables.ephemeral.all(c, has(c.securityContext) && has(c.securityContext.runAsNonRoot)
+          ? c.securityContext.runAsNonRoot == true : variables.podNonRoot)
+      message: "HYG: ephemeral containers must run as non-root"
+    - expression: >-
+        variables.ephemeral.all(c, has(c.securityContext) && has(c.securityContext.allowPrivilegeEscalation)
+          && c.securityContext.allowPrivilegeEscalation == false)
+      message: "HYG: ephemeral containers must set allowPrivilegeEscalation: false"
+    - expression: >-
+        variables.ephemeral.all(c, has(c.securityContext) && has(c.securityContext.readOnlyRootFilesystem)
+          && c.securityContext.readOnlyRootFilesystem == true)
+      message: "HYG: ephemeral containers must use a read-only root filesystem"
+    - expression: >-
+        variables.ephemeral.all(c, has(c.securityContext) && has(c.securityContext.capabilities)
+          && has(c.securityContext.capabilities.drop) && 'ALL' in c.securityContext.capabilities.drop)
+      message: "HYG: ephemeral containers must drop ALL capabilities"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: warden-ephemeral-container-hygiene
+spec:
+  policyName: warden-ephemeral-container-hygiene
+  validationActions: [Audit, Warn]   # → [Deny] at milestone M3 (ADR-020)

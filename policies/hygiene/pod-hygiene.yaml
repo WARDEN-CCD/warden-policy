@@ -2,8 +2,8 @@
 # (messages are prefixed HYG:). Audit until milestone M3 (ADR-020). Tested with tests/hygiene-smoke.sh.
 # Security-context rules cover regular, init and ephemeral containers; resources and probes apply to regular
 # containers only (init/ephemeral containers have no probes). Ephemeral containers added later through the
-# pods/ephemeralcontainers subresource (kubectl debug) are covered by Layer 1's VAP, which matches that
-# subresource natively; Kyverno's reports controller cannot list/watch it, so this policy does not match it.
+# pods/ephemeralcontainers subresource (kubectl debug) are checked by vap-ephemeral-hygiene.yaml in this
+# folder: Kyverno's reports controller cannot list/watch that subresource, a native VAP can match it.
 apiVersion: policies.kyverno.io/v1
 kind: ValidatingPolicy
 metadata:
@@ -53,7 +53,9 @@ spec:
             && c.securityContext.readOnlyRootFilesystem == true)
         && variables.init.all(c, has(c.securityContext) && has(c.securityContext.readOnlyRootFilesystem)
             && c.securityContext.readOnlyRootFilesystem == true)
-      messageExpression: "'HYG: readOnlyRootFilesystem must be true'"
+        && variables.ephemeral.all(c, has(c.securityContext) && has(c.securityContext.readOnlyRootFilesystem)
+            && c.securityContext.readOnlyRootFilesystem == true)
+      messageExpression: "'HYG: readOnlyRootFilesystem must be true on every container'"
     - expression: >-
         object.spec.containers.all(c, has(c.securityContext) && has(c.securityContext.capabilities)
             && has(c.securityContext.capabilities.drop) && 'ALL' in c.securityContext.capabilities.drop)
