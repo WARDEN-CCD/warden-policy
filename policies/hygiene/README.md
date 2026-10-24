@@ -1,12 +1,6 @@
-# Hygiene policies (Layer 3, planned for weeks 6–8)
+# Hygiene policies (Layer 3)
 
-Kyverno `ValidatingPolicy` (CEL) enforcing the golden-path defaults the service template already sets:
-
-| Policy | Rule |
-|--------|------|
-| `warden-run-as-non-root` | `securityContext.runAsNonRoot: true`, no privilege escalation, drop ALL capabilities |
-| `warden-readonly-rootfs` | `readOnlyRootFilesystem: true` |
-| `warden-resources` | CPU/memory requests and memory limit set on every container |
-| `warden-probes` | readiness and liveness probes present |
-
-Same namespace scope as the other layers. Messages prefixed `HYG:` (these are not threat-model controls).
+`pod-hygiene.yaml`: Kyverno `ValidatingPolicy` (CEL) enforcing the golden-path defaults the service template
+already sets: non-root, no privilege escalation, read-only root filesystem, drop ALL capabilities, CPU/memory
+requests plus a memory limit, readiness and liveness probes. Same namespace scope as the other layers. Messages
+are prefixed `HYG:` (these are not threat-model controls). Audit until M3.

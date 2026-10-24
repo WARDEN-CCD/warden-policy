@@ -1,0 +1,51 @@
+# Layer 3 (ADR-007): golden-path pod defaults, enforced as well as templated. Not threat-model controls
+# (messages are prefixed HYG:). Audit until milestone M3 (ADR-020). Tested with tests/hygiene-smoke.sh.
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: warden-pod-hygiene
+spec:
+  validationActions: [Audit]
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kube-public, kube-node-lease, local-path-storage, argocd, argo-rollouts, kyverno, envoy-gateway-system, monitoring, crossplane-system, cnpg-system, k6-operator-system]
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  variables:
+    - name: podNonRoot
+      expression: >-
+        has(object.spec.securityContext) && has(object.spec.securityContext.runAsNonRoot)
+        && object.spec.securityContext.runAsNonRoot == true
+  validations:
+    - expression: >-
+        object.spec.containers.all(c, variables.podNonRoot
+          || (has(c.securityContext) && has(c.securityContext.runAsNonRoot) && c.securityContext.runAsNonRoot == true))
+      messageExpression: "'HYG: containers must run as non-root (runAsNonRoot: true)'"
+    - expression: >-
+        object.spec.containers.all(c, has(c.securityContext) && has(c.securityContext.allowPrivilegeEscalation)
+          && c.securityContext.allowPrivilegeEscalation == false)
+      messageExpression: >-
+        'HYG: allowPrivilegeEscalation must be false: ' + object.spec.containers.filter(c,
+          !(has(c.securityContext) && has(c.securityContext.allowPrivilegeEscalation)
+            && c.securityContext.allowPrivilegeEscalation == false)).map(c, c.name).join(', ')
+    - expression: >-
+        object.spec.containers.all(c, has(c.securityContext) && has(c.securityContext.readOnlyRootFilesystem)
+          && c.securityContext.readOnlyRootFilesystem == true)
+      messageExpression: "'HYG: readOnlyRootFilesystem must be true'"
+    - expression: >-
+        object.spec.containers.all(c, has(c.securityContext) && has(c.securityContext.capabilities)
+          && has(c.securityContext.capabilities.drop) && 'ALL' in c.securityContext.capabilities.drop)
+      messageExpression: "'HYG: containers must drop ALL capabilities'"
+    - expression: >-
+        object.spec.containers.all(c, has(c.resources) && has(c.resources.requests)
+          && 'cpu' in c.resources.requests && 'memory' in c.resources.requests
+          && has(c.resources.limits) && 'memory' in c.resources.limits)
+      messageExpression: "'HYG: containers need cpu/memory requests and a memory limit'"
+    - expression: "object.spec.containers.all(c, has(c.readinessProbe) && has(c.livenessProbe))"
+      messageExpression: "'HYG: containers need readiness and liveness probes'"
