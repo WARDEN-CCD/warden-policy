@@ -1,7 +1,11 @@
-# DRAFT — encodes ADR-022; not yet exercised.
+# Encodes ADR-022; active on the kind cluster since 2026-10-24.
 # Vulnerability attestation is checked in Audit mode permanently: a scan is a snapshot, and blocking a
 # rollback because of a CVE published after the build is the wrong failure mode. CI blocks fixable
 # CRITICALs at build time; this policy makes the state visible on the admission dashboard.
+#
+# mutateDigest MUST be false (scripts/verify.py enforces it for every IVP). Kyverno's default (true) rewrote
+# `image:tag` to `image:tag@sha256:...` before the digest VAP ran, so a tag reference was admitted and Git kept
+# a mutable tag — found by attack A01 on 2026-10-24.
 apiVersion: policies.kyverno.io/v1
 kind: ImageValidatingPolicy
 metadata:
@@ -26,6 +30,10 @@ spec:
         resources: ["pods"]
   matchImageReferences:
     - glob: "ghcr.io/warden-ccd/*"
+  validationConfigurations:
+    mutateDigest: false   # never rewrite tags; the digest VAP must see what Git declared
+    verifyDigest: true
+    required: false       # audit-only policy: absence of a vuln attestation is reported, not enforced
   attestors:
     - name: wardenBuilder
       cosign:
