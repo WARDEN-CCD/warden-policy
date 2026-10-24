@@ -1,5 +1,7 @@
 # Layer 3 (ADR-007): golden-path pod defaults, enforced as well as templated. Not threat-model controls
 # (messages are prefixed HYG:). Audit until milestone M3 (ADR-020). Tested with tests/hygiene-smoke.sh.
+# Security-context rules cover regular, init and ephemeral containers; resources and probes apply to regular
+# containers only (init/ephemeral containers have no probes).
 apiVersion: policies.kyverno.io/v1
 kind: ValidatingPolicy
 metadata:
@@ -16,32 +18,48 @@ spec:
       - apiGroups: [""]
         apiVersions: ["v1"]
         operations: ["CREATE", "UPDATE"]
-        resources: ["pods"]
+        resources: ["pods", "pods/ephemeralcontainers"]
   variables:
     - name: podNonRoot
       expression: >-
         has(object.spec.securityContext) && has(object.spec.securityContext.runAsNonRoot)
         && object.spec.securityContext.runAsNonRoot == true
+    - name: init
+      expression: "has(object.spec.initContainers) ? object.spec.initContainers : []"
+    - name: ephemeral
+      expression: "has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers : []"
   validations:
+    # A container-level `runAsNonRoot: false` overrides the pod level, so it must never pass.
     - expression: >-
-        object.spec.containers.all(c, variables.podNonRoot
-          || (has(c.securityContext) && has(c.securityContext.runAsNonRoot) && c.securityContext.runAsNonRoot == true))
-      messageExpression: "'HYG: containers must run as non-root (runAsNonRoot: true)'"
+        object.spec.containers.all(c, has(c.securityContext) && has(c.securityContext.runAsNonRoot)
+            ? c.securityContext.runAsNonRoot == true : variables.podNonRoot)
+        && variables.init.all(c, has(c.securityContext) && has(c.securityContext.runAsNonRoot)
+            ? c.securityContext.runAsNonRoot == true : variables.podNonRoot)
+        && variables.ephemeral.all(c, has(c.securityContext) && has(c.securityContext.runAsNonRoot)
+            ? c.securityContext.runAsNonRoot == true : variables.podNonRoot)
+      messageExpression: "'HYG: every container must run as non-root (runAsNonRoot: true, not overridden to false)'"
     - expression: >-
         object.spec.containers.all(c, has(c.securityContext) && has(c.securityContext.allowPrivilegeEscalation)
-          && c.securityContext.allowPrivilegeEscalation == false)
-      messageExpression: >-
-        'HYG: allowPrivilegeEscalation must be false: ' + object.spec.containers.filter(c,
-          !(has(c.securityContext) && has(c.securityContext.allowPrivilegeEscalation)
-            && c.securityContext.allowPrivilegeEscalation == false)).map(c, c.name).join(', ')
+            && c.securityContext.allowPrivilegeEscalation == false)
+        && variables.init.all(c, has(c.securityContext) && has(c.securityContext.allowPrivilegeEscalation)
+            && c.securityContext.allowPrivilegeEscalation == false)
+        && variables.ephemeral.all(c, has(c.securityContext) && has(c.securityContext.allowPrivilegeEscalation)
+            && c.securityContext.allowPrivilegeEscalation == false)
+      messageExpression: "'HYG: allowPrivilegeEscalation must be false on every container'"
     - expression: >-
         object.spec.containers.all(c, has(c.securityContext) && has(c.securityContext.readOnlyRootFilesystem)
-          && c.securityContext.readOnlyRootFilesystem == true)
+            && c.securityContext.readOnlyRootFilesystem == true)
+        && variables.init.all(c, has(c.securityContext) && has(c.securityContext.readOnlyRootFilesystem)
+            && c.securityContext.readOnlyRootFilesystem == true)
       messageExpression: "'HYG: readOnlyRootFilesystem must be true'"
     - expression: >-
         object.spec.containers.all(c, has(c.securityContext) && has(c.securityContext.capabilities)
-          && has(c.securityContext.capabilities.drop) && 'ALL' in c.securityContext.capabilities.drop)
-      messageExpression: "'HYG: containers must drop ALL capabilities'"
+            && has(c.securityContext.capabilities.drop) && 'ALL' in c.securityContext.capabilities.drop)
+        && variables.init.all(c, has(c.securityContext) && has(c.securityContext.capabilities)
+            && has(c.securityContext.capabilities.drop) && 'ALL' in c.securityContext.capabilities.drop)
+        && variables.ephemeral.all(c, has(c.securityContext) && has(c.securityContext.capabilities)
+            && has(c.securityContext.capabilities.drop) && 'ALL' in c.securityContext.capabilities.drop)
+      messageExpression: "'HYG: every container must drop ALL capabilities'"
     - expression: >-
         object.spec.containers.all(c, has(c.resources) && has(c.resources.requests)
           && 'cpu' in c.resources.requests && 'memory' in c.resources.requests
