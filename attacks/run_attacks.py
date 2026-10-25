@@ -191,6 +191,20 @@ def a12_policy_drift() -> dict:
     return {"observed": "not restored within 300s", "passed": False, "message": "self-heal did not revert the tampering"}
 
 
+def a13_init_container_smuggle(good: str | None, unsigned: str | None) -> dict:
+    """An unsigned org image as an initContainer next to a signed app container. The IVP validations iterate
+    images.containers only; validationConfigurations.required must refuse any matched image nobody verified."""
+    if not good or not unsigned:
+        return {"observed": "skipped", "passed": None, "message": "fixtures not available (good, a02_unsigned)"}
+    pod = {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": f"a13-{int(time.time())}", "namespace": LAB_NS},
+           "spec": {"initContainers": [{"name": "init", "image": unsigned}],
+                    "containers": [{"name": "app", "image": good}]}}
+    r = sh("kubectl", "create", "--dry-run=server", "-f", "-", stdin=json.dumps(pod))
+    out = " ".join((r.stdout + r.stderr).split())
+    observed = "admit" if r.returncode == 0 else "deny"
+    return {"observed": observed, "passed": observed == "deny" and "is not verified" in out, "message": out[:400]}
+
+
 # --- main --------------------------------------------------------------------------------------------------------
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -221,6 +235,7 @@ def main() -> int:
         ("A10", "T11", "OIDC token from the build job", "a10", None, None),
         ("A11", "T12", "promotion bot changes more than a digest", "a11", None, None),
         ("A12", "T13", "kubectl edit of an admission policy", "a12", None, None),
+        ("A13", "T02", "unsigned org image smuggled in as an initContainer", "a13", None, None),
     ]
     results = []
     setup_lab()
@@ -239,8 +254,9 @@ def main() -> int:
                 expected = "no signed artifact"
             else:
                 r = {"a09": a09_no_cluster_credentials, "a10": a10_oidc_only_in_sign_job,
-                     "a11": a11_bot_overreach, "a12": a12_policy_drift}[kind]()
-                expected = "refused / restored"
+                     "a11": a11_bot_overreach, "a12": a12_policy_drift,
+                     "a13": lambda: a13_init_container_smuggle(resolved["good"], resolved["a02_unsigned"])}[kind]()
+                expected = "deny (image not verified)" if kind == "a13" else "refused / restored"
             results.append({"attack": aid, "threat": threat, "description": desc, "image": image,
                             "expected": expected, **r})
             mark = {True: "PASS", False: "FAIL", None: "SKIP"}[r["passed"]]
