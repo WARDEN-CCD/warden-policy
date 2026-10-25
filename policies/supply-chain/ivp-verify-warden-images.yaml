@@ -1,10 +1,12 @@
-# DRAFT until exercised with real Warden images. Its shape was validated in spike S1 (hub
-# evidence/spikes/S1.md): the same rules, pointed at the spike's signer, admitted the signed image and refused
-# unsigned and foreign-signed images on Kyverno 1.19.2 / GHCR. Confirmed there:
+# Exercised with real Warden images on kind: attack suite E2 (hub evidence/attacks/). Its shape was first
+# validated in spike S1 (hub evidence/spikes/S1.md). Confirmed there:
 #   - extractPayload() returns the in-toto statement, so paths start with `.predicate.`
 #   - the certificate subject is the reusable workflow's ref, with the org in canonical case WARDEN-CCD
 #   - GitHub provenance and cosign bundles are found via GHCR's referrers fallback tag; Rekor v1 entries verify
-# Still open: does `images.containers` cover initContainers? If not, add `images.initContainers`.
+# initContainers: `images.containers` does not include them, but `required: true` below refuses any matched
+# image that no validation verified ("is not verified: no policy performed a signature or attestation check").
+# So an unsigned org image cannot be smuggled in as an initContainer (attack A13), and a signed one is refused
+# too. The service template uses none; extend the validations if that changes.
 #
 # Layer 2 of admission (ADR-007): who built it, from what, with which attestations.
 # Starts in Audit; flips to Deny at milestone M3 (ADR-020).
