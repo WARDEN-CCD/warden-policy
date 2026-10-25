@@ -205,6 +205,37 @@ def a13_init_container_smuggle(good: str | None, unsigned: str | None) -> dict:
     return {"observed": observed, "passed": observed == "deny" and "is not verified" in out, "message": out[:400]}
 
 
+def a14_replicaset_path(unsigned: str | None) -> dict:
+    """A real ReplicaSet with an unsigned org image. Kyverno 1.19.2 does not verify ReplicaSets (ADR-031), so the
+    ReplicaSet may be admitted; the Pods the ReplicaSet controller then creates must be refused at Pod admission."""
+    if not unsigned:
+        return {"observed": "skipped", "passed": None, "message": "fixture not available (a02_unsigned)"}
+    name = f"a14-{int(time.time())}"
+    rs = {"apiVersion": "apps/v1", "kind": "ReplicaSet", "metadata": {"name": name, "namespace": LAB_NS},
+          "spec": {"replicas": 1, "selector": {"matchLabels": {"app": name}},
+                   "template": {"metadata": {"labels": {"app": name}},
+                                "spec": {"containers": [{"name": "app", "image": unsigned}]}}}}
+    r = sh("kubectl", "create", "-f", "-", stdin=json.dumps(rs))
+    if r.returncode != 0:
+        out = " ".join((r.stdout + r.stderr).split())
+        return {"observed": "ReplicaSet refused", "passed": "T02/T03/T07/T08" in out, "message": out[:400]}
+    try:
+        deadline = time.time() + 180
+        while time.time() < deadline:
+            pods = sh("kubectl", "-n", LAB_NS, "get", "pods", "-l", f"app={name}", "-o", "name").stdout.strip()
+            if pods:
+                return {"observed": "Pod created from an unsigned template", "passed": False, "message": pods}
+            events = sh("kubectl", "-n", LAB_NS, "get", "events", "--field-selector",
+                        f"involvedObject.name={name},reason=FailedCreate", "-o", "jsonpath={.items[*].message}").stdout
+            if "T02/T03/T07/T08" in events:
+                return {"observed": "ReplicaSet admitted; its Pods refused", "passed": True,
+                        "message": " ".join(events.split())[:400]}
+            time.sleep(3)
+        return {"observed": "no Pod and no FailedCreate within 180 s", "passed": False, "message": ""}
+    finally:
+        sh("kubectl", "-n", LAB_NS, "delete", "rs", name, "--ignore-not-found", "--wait=false")
+
+
 # --- main --------------------------------------------------------------------------------------------------------
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -236,6 +267,7 @@ def main() -> int:
         ("A11", "T12", "promotion bot changes more than a digest", "a11", None, None),
         ("A12", "T13", "kubectl edit of an admission policy", "a12", None, None),
         ("A13", "T02", "unsigned org image smuggled in as an initContainer", "a13", None, None),
+        ("A14", "T02", "unsigned org image via a ReplicaSet", "a14", None, None),
     ]
     results = []
     setup_lab()
@@ -255,8 +287,10 @@ def main() -> int:
             else:
                 r = {"a09": a09_no_cluster_credentials, "a10": a10_oidc_only_in_sign_job,
                      "a11": a11_bot_overreach, "a12": a12_policy_drift,
-                     "a13": lambda: a13_init_container_smuggle(resolved["good"], resolved["a02_unsigned"])}[kind]()
-                expected = "deny (image not verified)" if kind == "a13" else "refused / restored"
+                     "a13": lambda: a13_init_container_smuggle(resolved["good"], resolved["a02_unsigned"]),
+                     "a14": lambda: a14_replicaset_path(resolved["a02_unsigned"])}[kind]()
+                expected = {"a13": "deny (image not verified)",
+                            "a14": "no Pod from an unsigned template"}.get(kind, "refused / restored")
             results.append({"attack": aid, "threat": threat, "description": desc, "image": image,
                             "expected": expected, **r})
             mark = {True: "PASS", False: "FAIL", None: "SKIP"}[r["passed"]]
