@@ -1,0 +1,66 @@
+# Layer 1 companion to vap-image-references.yaml for Jobs (hub ADR-033, THREAT_MODEL T06/T01).
+#
+# Why it exists: the pods VAP lets the Job controller run the CloudNativePG images (the initdb job of every
+# Database is created by the Job controller, not by the operator). That would make the Job controller a confused
+# deputy: anyone who can create a Job in a service namespace could run those images through it. So the Job itself
+# is checked when it is created: its pod template may name only Warden images by digest, except that the CNPG
+# operator's own service account may create a Job whose images are the exact CloudNativePG ones. A Job created by
+# anyone else with those images is refused here, before the Job controller ever sees it.
+#
+# CREATE only: a Job's pod template is immutable, and the Job controller updates Jobs (finalizers, suspend) as
+# itself, which an UPDATE rule would wrongly refuse. Jobs created by the cronjob controller are covered the same way.
+# The image lists must equal the ones in vap-image-references.yaml and the database-cnpg composition (verify.py).
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: warden-image-references-jobs
+  annotations:
+    warden.dev/threat-ids: "T01,T06"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kube-public, kube-node-lease, local-path-storage, argocd, argo-rollouts, kyverno, envoy-gateway-system, monitoring, crossplane-system, cnpg-system, k6-operator-system]
+    resourceRules:
+      - apiGroups: ["batch"]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["jobs"]
+  variables:
+    - name: fromCnpgOperator
+      expression: "request.userInfo.username == 'system:serviceaccount:cnpg-system:cloudnative-pg'"
+    - name: cnpgPostgres
+      expression: >-
+        ['ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e',
+         'ghcr.io/cloudnative-pg/postgresql:17.11-system-trixie@sha256:ae22bdd6008e02c18180c84192b3afbc95a758a184899f1cb7e85ed9c3ef8128']
+    - name: cnpgOperator
+      expression: "'ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07'"
+    - name: containerImages
+      expression: "object.spec.template.spec.containers.map(c, c.image)"
+    - name: initImages
+      expression: "has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers.map(c, c.image) : []"
+    - name: disallowed
+      expression: >-
+        variables.containerImages.filter(i, !(i.startsWith('ghcr.io/warden-ccd/')
+          || (variables.fromCnpgOperator && i in variables.cnpgPostgres)))
+        + variables.initImages.filter(i, !(i.startsWith('ghcr.io/warden-ccd/')
+          || (variables.fromCnpgOperator && (i in variables.cnpgPostgres || i == variables.cnpgOperator))))
+  validations:
+    - expression: "size(variables.disallowed) == 0"
+      messageExpression: "'T06: Job template uses an image outside ghcr.io/warden-ccd/ (CloudNativePG images only in Jobs the operator creates): ' + variables.disallowed.join(', ')"
+    - expression: >-
+        (variables.containerImages + variables.initImages).all(i, i.matches('@sha256:[a-f0-9]{64}$'))
+      messageExpression: >-
+        'T01: Job template image must be pinned by digest (name@sha256:...): '
+        + (variables.containerImages + variables.initImages).filter(i, !i.matches('@sha256:[a-f0-9]{64}$')).join(', ')
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: warden-image-references-jobs
+spec:
+  policyName: warden-image-references-jobs
+  validationActions: [Deny, Audit]   # with warden-image-references-pods (hub ADR-032/033); break-glass: [Audit, Warn] in a PR

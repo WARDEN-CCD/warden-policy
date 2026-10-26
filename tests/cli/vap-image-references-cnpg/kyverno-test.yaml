@@ -12,6 +12,8 @@ results:
 - policy: warden-image-references-pods
   resources:
   - cnpg-pinned-image
+  - cnpg-instance-pod
+  - cnpg-postgres-image-as-init-container
   kind: Pod
   result: pass
   isValidatingAdmissionPolicy: true
@@ -20,6 +22,9 @@ results:
   - cnpg-unpinned-postgres
   - cnpg-other-digest
   - cnpg-image-as-ephemeral
+  - cnpg-operator-image-by-tag
+  - cnpg-operator-image-as-main-container
+  - cnpg-operator-image-other-digest
   kind: Pod
   result: fail
   isValidatingAdmissionPolicy: true
