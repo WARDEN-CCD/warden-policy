@@ -1,0 +1,26 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: vap-image-references-jobs-user
+policies:
+- ../../../policies/admission/vap-image-references-jobs.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+results:
+- policy: warden-image-references-jobs
+  resources:
+  - user-job-warden-image
+  kind: Job
+  result: pass
+  isValidatingAdmissionPolicy: true
+- policy: warden-image-references-jobs
+  resources:
+  - user-job-postgres-image
+  - user-job-operator-image
+  - user-job-cnpg-shape
+  - user-job-foreign-image
+  - user-job-image-by-tag
+  kind: Job
+  result: fail
+  isValidatingAdmissionPolicy: true
