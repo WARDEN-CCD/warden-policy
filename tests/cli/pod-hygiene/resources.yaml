@@ -311,6 +311,81 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
+  name: hyg-job-pod-never-restarts-no-probes
+  namespace: svc-books
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-job-pod-on-failure-no-probes
+  namespace: svc-books
+spec:
+  restartPolicy: OnFailure
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hyg-explicit-always-no-probes
+  namespace: svc-books
+spec:
+  restartPolicy: Always
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
   name: hyg-init-escalates
   namespace: svc-books
 spec:
