@@ -12,6 +12,8 @@ results:
   resources:
   - hyg-good
   - hyg-net-bind-service-allowed
+  - hyg-job-pod-never-restarts-no-probes
+  - hyg-job-pod-on-failure-no-probes
   kind: Pod
   result: pass
   isValidatingPolicy: true
@@ -25,6 +27,7 @@ results:
   - hyg-privileged
   - hyg-no-resources
   - hyg-no-probes
+  - hyg-explicit-always-no-probes
   - hyg-init-escalates
   - hyg-ephemeral-no-security-context
   kind: Pod

@@ -83,5 +83,10 @@ spec:
           && 'cpu' in c.resources.requests && 'memory' in c.resources.requests
           && has(c.resources.limits) && 'memory' in c.resources.limits)
       messageExpression: "'HYG: containers need cpu/memory requests and a memory limit'"
-    - expression: "object.spec.containers.all(c, has(c.readinessProbe) && has(c.livenessProbe))"
-      messageExpression: "'HYG: containers need readiness and liveness probes'"
+    # Probes belong to long-running pods. Run-to-completion pods (Job pods: restartPolicy Never or OnFailure, such as
+    # the initdb job CloudNativePG runs for every Database) have none, and requiring them would stop every
+    # Database from being created once this policy enforces (found 2026-10-26 before the M3 flip, ADR-032).
+    - expression: >-
+        (has(object.spec.restartPolicy) && object.spec.restartPolicy != 'Always')
+        || object.spec.containers.all(c, has(c.readinessProbe) && has(c.livenessProbe))
+      messageExpression: "'HYG: containers of long-running pods need readiness and liveness probes'"
