@@ -1,6 +1,6 @@
 # Layer 3 companion to pod-hygiene.yaml for ephemeral containers added with `kubectl debug`, which arrive as an
 # UPDATE on the pods/ephemeralcontainers subresource. A native VAP can match that subresource (Kyverno's reports
-# controller cannot list/watch it). Same rules as pod-hygiene for security context. Audit+Warn until M3.
+# controller cannot list/watch it). Same rules as pod-hygiene for security context. Deny+Audit (staged M3, hub ADR-032).
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -55,4 +55,4 @@ metadata:
   name: warden-ephemeral-container-hygiene
 spec:
   policyName: warden-ephemeral-container-hygiene
-  validationActions: [Audit, Warn]   # → [Deny] at milestone M3 (ADR-020)
+  validationActions: [Deny, Audit]   # staged M3 (hub ADR-032); break-glass: set back to [Audit, Warn] in a PR
