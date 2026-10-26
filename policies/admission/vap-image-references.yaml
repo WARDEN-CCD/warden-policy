@@ -34,22 +34,38 @@ spec:
         object.spec.containers.map(c, c.image)
         + (has(object.spec.initContainers) ? object.spec.initContainers.map(c, c.image) : [])
         + (has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers.map(c, c.image) : [])
-    # Carve-out (THREAT_MODEL T06): PostgreSQL pods for a service's Database run the official CNPG image. Exempt
-    # only when (a) the request comes from the CloudNativePG operator's service account (not a label the
-    # requester controls), (b) the image is one of the exact digests the database-cnpg composition pins, and
-    # (c) it is a regular or init container, never an ephemeral one.
+    # Carve-out (THREAT_MODEL T06, hub ADR-033): the pods of a service's Database run upstream CloudNativePG images,
+    # which are not built by Warden. Exempt only when (a) the pod is created by the CloudNativePG operator's service
+    # account (the instance pod) or by the Job controller for a pod owned by a Job (the initdb job pod), never by a
+    # label the requester controls, (b) every image is one of the exact digests the platform pins (the two PostgreSQL
+    # images from the database-cnpg composition and the operator image the operator hands to its bootstrap init
+    # container), and (c) it is a regular or init container, never an ephemeral one.
+    # Found 2026-10-26, when this policy first enforced: the init container image was a tag and the initdb pod comes
+    # from the Job controller, so no Database could be created. In Audit mode both were only warnings.
     - name: fromCnpgOperator
       expression: "request.userInfo.username == 'system:serviceaccount:cnpg-system:cloudnative-pg'"
+    # kube-controller-manager runs the Job controller under its own service account when started with
+    # --use-service-account-credentials (kind); otherwise every controller appears as system:kube-controller-manager.
+    - name: fromJobController
+      expression: >-
+        (request.userInfo.username == 'system:serviceaccount:kube-system:job-controller'
+          || request.userInfo.username == 'system:kube-controller-manager')
+        && has(object.metadata.ownerReferences)
+        && object.metadata.ownerReferences.exists(o, o.apiVersion == 'batch/v1' && o.kind == 'Job'
+             && has(o.controller) && o.controller == true)
+    - name: fromCnpgRequester
+      expression: "variables.fromCnpgOperator || variables.fromJobController"
     - name: cnpgImages
       expression: >-
         ['ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e',
-         'ghcr.io/cloudnative-pg/postgresql:17.11-system-trixie@sha256:ae22bdd6008e02c18180c84192b3afbc95a758a184899f1cb7e85ed9c3ef8128']
+         'ghcr.io/cloudnative-pg/postgresql:17.11-system-trixie@sha256:ae22bdd6008e02c18180c84192b3afbc95a758a184899f1cb7e85ed9c3ef8128',
+         'ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07']
     - name: ephemeralImages
       expression: "has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers.map(c, c.image) : []"
     - name: disallowed
       expression: >-
         variables.images.filter(i, !(i.startsWith('ghcr.io/warden-ccd/')
-          || (variables.fromCnpgOperator && i in variables.cnpgImages && !(i in variables.ephemeralImages))))
+          || (variables.fromCnpgRequester && i in variables.cnpgImages && !(i in variables.ephemeralImages))))
   validations:
     - expression: "size(variables.disallowed) == 0"
       messageExpression: "'T06: image not from ghcr.io/warden-ccd/: ' + variables.disallowed.join(', ')"
