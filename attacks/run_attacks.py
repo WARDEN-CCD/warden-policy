@@ -74,13 +74,35 @@ def teardown_lab() -> None:
     sh("kubectl", "delete", "namespace", LAB_NS, "--ignore-not-found", "--wait=false")
 
 
+def container(name: str, image: str, probes: bool = True) -> dict:
+    """A container that satisfies pod hygiene. Pod hygiene enforces since 2026-10-26 (hub ADR-032), so a bare
+    `kubectl run` pod is refused for hygiene before the supply-chain rule an attack targets is ever reached: the
+    denial looks right but is for the wrong reason, and the legitimate-image case cannot be admitted at all."""
+    c = {"name": name, "image": image,
+         "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
+                             "capabilities": {"drop": ["ALL"]}},
+         "resources": {"requests": {"cpu": "10m", "memory": "32Mi"}, "limits": {"memory": "64Mi"}}}
+    if probes:
+        c["readinessProbe"] = {"httpGet": {"path": "/actuator/health/readiness", "port": 8080}}
+        c["livenessProbe"] = {"httpGet": {"path": "/actuator/health/liveness", "port": 8080}}
+    return c
+
+
+def hygienic_spec(containers: list, init: list | None = None) -> dict:
+    spec = {"securityContext": {"runAsNonRoot": True}, "containers": containers}
+    if init:
+        spec["initContainers"] = init
+    return spec
+
+
 def admission(attack: str, image: str | None, expect: str | None) -> dict:
     """expect=None: must be admitted; otherwise must be denied with `expect` in the message."""
     if image is None:
         return {"observed": "skipped", "passed": None, "message": "fixture not available (attacks/fixtures.json)"}
     name = attack.lower().replace("_", "-")
-    r = sh("kubectl", "-n", LAB_NS, "run", f"{name}-{int(time.time())}", "--restart=Never", "--dry-run=server",
-           f"--image={image}")
+    pod = {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": f"{name}-{int(time.time())}", "namespace": LAB_NS},
+           "spec": {**hygienic_spec([container("app", image)]), "restartPolicy": "Never"}}
+    r = sh("kubectl", "create", "--dry-run=server", "-f", "-", stdin=json.dumps(pod))
     out = (r.stdout + r.stderr).strip()
     observed = "admit" if r.returncode == 0 else "deny"
     if expect is None:
@@ -197,8 +219,7 @@ def a13_init_container_smuggle(good: str | None, unsigned: str | None) -> dict:
     if not good or not unsigned:
         return {"observed": "skipped", "passed": None, "message": "fixtures not available (good, a02_unsigned)"}
     pod = {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": f"a13-{int(time.time())}", "namespace": LAB_NS},
-           "spec": {"initContainers": [{"name": "init", "image": unsigned}],
-                    "containers": [{"name": "app", "image": good}]}}
+           "spec": hygienic_spec([container("app", good)], init=[container("init", unsigned, probes=False)])}
     r = sh("kubectl", "create", "--dry-run=server", "-f", "-", stdin=json.dumps(pod))
     out = " ".join((r.stdout + r.stderr).split())
     observed = "admit" if r.returncode == 0 else "deny"
@@ -214,7 +235,7 @@ def a14_replicaset_path(unsigned: str | None) -> dict:
     rs = {"apiVersion": "apps/v1", "kind": "ReplicaSet", "metadata": {"name": name, "namespace": LAB_NS},
           "spec": {"replicas": 1, "selector": {"matchLabels": {"app": name}},
                    "template": {"metadata": {"labels": {"app": name}},
-                                "spec": {"containers": [{"name": "app", "image": unsigned}]}}}}
+                                "spec": hygienic_spec([container("app", unsigned)])}}}
     r = sh("kubectl", "create", "-f", "-", stdin=json.dumps(rs))
     if r.returncode != 0:
         out = " ".join((r.stdout + r.stderr).split())
