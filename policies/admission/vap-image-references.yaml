@@ -1,5 +1,5 @@
-# Encodes ADR-007. Active on the kind cluster (Audit+Warn) since 2026-10-24; tested with
-# warden-policy/tests/vap-smoke.sh.
+# Encodes ADR-007. Active on the kind cluster since 2026-10-24 (Audit+Warn); Deny+Audit from hub ADR-032.
+# Tested with tests/cli (kyverno test) and tests/vap-smoke.sh.
 #
 # Layer 1 of admission: cheap invariants enforced in-process by the API server (no webhook to fail).
 #   - images must come from the Warden registry prefix (stops IVP-matching bypass, T06)
@@ -64,7 +64,7 @@ metadata:
   name: warden-image-references-pods
 spec:
   policyName: warden-image-references-pods
-  validationActions: [Audit, Warn]   # → [Deny] at milestone M3 (ADR-020)
+  validationActions: [Deny, Audit]   # staged M3 (hub ADR-032); break-glass: set back to [Audit, Warn] in a PR
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
@@ -103,4 +103,4 @@ metadata:
   name: warden-image-references-rollouts
 spec:
   policyName: warden-image-references-rollouts
-  validationActions: [Audit, Warn]   # → [Deny] at milestone M3 (ADR-020)
+  validationActions: [Deny, Audit]   # staged M3 (hub ADR-032); break-glass: set back to [Audit, Warn] in a PR
