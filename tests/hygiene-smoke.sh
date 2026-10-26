@@ -29,8 +29,10 @@ debug() {  # $1 description, $2 expected substring ("" = no HYG message), $3 sec
 hardened='"allowPrivilegeEscalation":false,"readOnlyRootFilesystem":true,"capabilities":{"drop":["ALL"]}'
 if [ -n "$target" ]; then
   debug "debug container as root is flagged"    "HYG: ephemeral containers must run as non-root"      "{\"runAsNonRoot\":false,$hardened}"
-  # The API server itself rejects privileged with allowPrivilegeEscalation false, so that field is left out here.
-  debug "privileged debug container is flagged" "HYG: privileged ephemeral containers are not allowed" \
+  # The API server itself rejects privileged together with allowPrivilegeEscalation false, so that field is left out
+  # here, which also trips another HYG rule. Under Deny the API server reports only the first failing rule (Audit+Warn
+  # listed all), so this asserts "refused by a HYG rule" rather than one specific message.
+  debug "privileged debug container is flagged" "HYG:" \
     '{"runAsNonRoot":true,"privileged":true,"readOnlyRootFilesystem":true,"capabilities":{"drop":["ALL"]}}'
   debug "debug container adding SYS_ADMIN flagged" "HYG: ephemeral containers must drop ALL capabilities" \
     '{"runAsNonRoot":true,"allowPrivilegeEscalation":false,"readOnlyRootFilesystem":true,"capabilities":{"drop":["ALL"],"add":["SYS_ADMIN"]}}'

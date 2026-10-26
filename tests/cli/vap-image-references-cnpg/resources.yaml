@@ -128,3 +128,144 @@ spec:
   ephemeralContainers:
   - name: debug
     image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cnpg-instance-pod
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: postgres
+    image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+  initContainers:
+  - name: bootstrap-controller
+    image: ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cnpg-operator-image-by-tag
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: postgres
+    image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+  initContainers:
+  - name: bootstrap-controller
+    image: ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cnpg-operator-image-other-digest
+  namespace: svc-books
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: postgres
+    image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /actuator/health/readiness
+        port: 8080
+    livenessProbe:
+      httpGet:
+        path: /actuator/health/liveness
+        port: 8080
+  initContainers:
+  - name: bootstrap-controller
+    image: ghcr.io/cloudnative-pg/cloudnative-pg@sha256:5555555555555555555555555555555555555555555555555555555555555555
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi

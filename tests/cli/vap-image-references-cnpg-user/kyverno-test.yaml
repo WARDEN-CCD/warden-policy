@@ -1,0 +1,17 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: vap-image-references-cnpg-user
+policies:
+- ../../../policies/admission/vap-image-references.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+results:
+- policy: warden-image-references-pods
+  resources:
+  - user-pod-claims-job-owner
+  - user-pod-cnpg-instance-shape
+  kind: Pod
+  result: fail
+  isValidatingAdmissionPolicy: true

@@ -1,0 +1,27 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: vap-image-references-cnpg-job
+policies:
+- ../../../policies/admission/vap-image-references.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+userinfo: user-info.yaml
+results:
+- policy: warden-image-references-pods
+  resources:
+  - job-initdb-pod
+  kind: Pod
+  result: pass
+  isValidatingAdmissionPolicy: true
+- policy: warden-image-references-pods
+  resources:
+  - job-pod-without-owner
+  - job-pod-owned-by-replicaset
+  - job-pod-foreign-image
+  - job-pod-wrong-operator-digest
+  - job-pod-operator-image-by-tag
+  kind: Pod
+  result: fail
+  isValidatingAdmissionPolicy: true
