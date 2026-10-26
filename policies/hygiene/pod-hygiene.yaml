@@ -9,7 +9,7 @@ kind: ValidatingPolicy
 metadata:
   name: warden-pod-hygiene
 spec:
-  validationActions: [Audit]
+  validationActions: [Deny, Audit]   # staged M3 (hub ADR-032); break-glass: set back to [Audit] in a PR
   matchConstraints:
     namespaceSelector:
       matchExpressions:
