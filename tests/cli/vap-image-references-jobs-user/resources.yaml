@@ -1,0 +1,179 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: user-job-warden-image
+  namespace: svc-books
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: x
+        image: ghcr.io/warden-ccd/svc-books@sha256:38c35b0d18ec85138b41cdca0a9921bdce564331f490063e11b76e40cb2edf24
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: user-job-postgres-image
+  namespace: svc-books
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: x
+        image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: user-job-operator-image
+  namespace: svc-books
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: initdb
+        image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+      initContainers:
+      - name: bootstrap-controller
+        image: ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: user-job-cnpg-shape
+  namespace: svc-books
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: initdb
+        image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie@sha256:f7e00138159bb45d70b624ba25e446924cb3ed1bf366d13e936c3f81b914064e
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+      initContainers:
+      - name: bootstrap-controller
+        image: ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1@sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: user-job-foreign-image
+  namespace: svc-books
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: x
+        image: docker.io/library/busybox@sha256:2222222222222222222222222222222222222222222222222222222222222222
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: user-job-image-by-tag
+  namespace: svc-books
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: x
+        image: ghcr.io/warden-ccd/svc-books:v1
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
