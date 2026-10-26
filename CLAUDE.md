@@ -8,7 +8,10 @@ and `THREAT_MODEL.md` before changing a policy.
   Most examples online still use ClusterPolicy `verifyImages` — do not copy them.
 - Cheap invariants (registry, digest) belong in VAP; anything needing registry or Sigstore access belongs in Kyverno.
 - Every policy: `warden.dev/threat-ids` annotation; every validation message starts with the threat ID.
-- Policies stay `Audit` (VAP bindings: `[Audit, Warn]`) until milestone M3. Do not flip early.
+- Staged M3 (hub ADR-032, owner-approved 2026-10-26): the VAP bindings and `warden-pod-hygiene` are `[Deny, Audit]`.
+  The image-verification policies stay `Audit` + `failurePolicy: Ignore` until Kyverno retries transient errors;
+  do not flip them early. Run every legitimate pod class (CNPG pods, Jobs) under a policy before enforcing it:
+  Audit mode hides denials (hub ADR-033).
 - Exempt-namespace lists must match the hub's `workspace.yaml` `platformNamespaces`.
 - A policy change ships with a `kyverno test` case for the allow path **and** the deny path.
 - An attack passes only if refused for the expected reason (match the message prefix).
